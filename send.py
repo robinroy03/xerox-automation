@@ -12,6 +12,10 @@ import base64
 from email.message import EmailMessage
 import google.auth
 
+from bs4 import BeautifulSoup 
+import email
+import lxml
+
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly", "https://mail.google.com/"]
 
 creds = None
@@ -101,10 +105,11 @@ def gmail_send_message():
     message = EmailMessage()
 
     message.set_content("86")
+    # print(service.users().messages().list(userId = 'me').execute())
 
     message["To"] = "robin.roy2022@vitstudent.ac.in"
     # message["From"] = "robin.roy2022@vitstudent.ac.in"
-    message["Subject"] = "Re: Heylo"
+    message["Subject"] = "Heylo"
     # message["in-reply-to"] = "robin.roy2022@vitstudent.ac.in"
 
     # encoded message
@@ -125,5 +130,55 @@ def gmail_send_message():
   return send_message
 
 
-gmail_send_message()
+def gmail_read_messages():
+  try:
+    service = build("gmail", "v1", credentials=creds)
+    result = service.users().messages().list(userId = 'me').execute()
+
+    messages = result.get('messages')
+
+    for msg in messages:
+      txt = service.users().messages().get(userId = 'me', id = msg['id']).execute()
+      print(txt)
+      try:       
+        # Get value of 'payload' from dictionary 'txt' 
+        payload = txt['payload'] 
+        headers = payload['headers'] 
+
+        # Look for Subject and Sender Email in the headers 
+        for d in headers: 
+            if d['name'] == 'Subject': 
+                subject = d['value'] 
+            if d['name'] == 'From': 
+                sender = d['value'] 
+
+        # The Body of the message is in Encrypted format. So, we have to decode it. 
+        # Get the data and decode it with base 64 decoder. 
+        parts = payload.get('parts')[0] 
+        data = parts['body']['data'] 
+        data = data.replace("-","+").replace("_","/") 
+        decoded_data = base64.b64decode(data) 
+
+        # Now, the data obtained is in lxml. So, we will parse  
+        # it with BeautifulSoup library 
+        soup = BeautifulSoup(decoded_data , "lxml") 
+        body = soup.body() 
+
+        # Printing the subject, sender's email and message 
+        print("Subject: ", subject) 
+        print("From: ", sender) 
+        print("Message: ", body) 
+        print('\n') 
+      
+      except Exception as e:
+         print(e)
+         pass
+  
+  except HttpError as error:
+    print(f"An error occured {error}")
+
+
+
+gmail_read_messages()
+# gmail_send_message()
 # gmail_create_draft()
